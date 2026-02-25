@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TV Judaica</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        video {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            background: black;
+            border: none;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <video id="video" autoplay muted controls playsinline></video>
+    <script>
+        const video = document.getElementById('video');
+        const stream = 'https://br5093.streamingdevideo.com.br/tvjudaica/tvjudaica/playlist.m3u8';
+
+        function iniciarStream() {
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(stream);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    video.play();
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = stream;
+                video.addEventListener('loadedmetadata', function () {
+                    video.play();
+                });
+            } else {
+                alert('Seu navegador não suporta reprodução de vídeo HLS.');
+            }
+        }
+        iniciarStream();
+        document.addEventListener('keydown', function (event) {
+            switch (event.keyCode) {
+                case 13:
+                    video.muted = !video.muted;
+                    break;
+                case 32:
+                    if (video.paused) {
+                        video.play();
+                    } else {
+                        video.pause();
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+        window.onload = () => {
+            document.body.focus();
+        };
+    </script>
+</body>
+
+</html>

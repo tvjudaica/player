@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TV Judaica</title>
     <style>
-        html, body {
+        html,
+        body {
             margin: 0;
             padding: 0;
             background-color: black;
@@ -44,10 +46,11 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
+
 <body>
     <div class="player-wrapper">
         <div class="tv-frame">
-            <video id="video" autoplay muted controls playsinline></video>
+            <video id="video" autoplay muted playsinline webkit-playsinline controls></video>
         </div>
     </div>
     <script>
@@ -55,23 +58,30 @@
         const stream = 'https://br5093.streamingdevideo.com.br/tvjudaica/tvjudaica/playlist.m3u8';
 
         function iniciarStream() {
+            video.muted = true;
+            video.playsInline = true;
+            video.setAttribute('webkit-playsinline', '');
             if (Hls.isSupported()) {
                 const hls = new Hls();
                 hls.loadSource(stream);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                    video.play();
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(() => { });
                 });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = stream;
-                video.addEventListener('loadedmetadata', function () {
-                    video.play();
+                video.load();
+                video.play().catch((err) => {
+                    console.log('autoplay bloqueado', err);
                 });
             } else {
                 alert('Seu navegador não suporta reprodução de vídeo HLS.');
             }
         }
-        iniciarStream();
+        window.addEventListener('load', () => {
+            iniciarStream();
+            document.body.focus();
+        });
         document.addEventListener('keydown', function (event) {
             switch (event.keyCode) {
                 case 13:
@@ -88,9 +98,6 @@
                     break;
             }
         });
-        window.onload = () => {
-            document.body.focus();
-        };
     </script>
 </body>
 

@@ -16,10 +16,30 @@
             overflow: hidden;
         }
 
-        video {
+        .player-wrapper {
             width: 100vw;
             height: 100vh;
-            object-fit: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: black;
+        }
+
+        .tv-frame {
+            width: 100%;
+            max-width: calc(100vh * 16 / 9);
+            max-height: 100vh;
+            aspect-ratio: 16 / 9;
+            background: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
             background: black;
             border: none;
         }
@@ -28,21 +48,29 @@
 </head>
 
 <body>
-    <video id="video" autoplay muted controls playsinline></video>
+    <div class="player-wrapper">
+        <div class="tv-frame">
+            <video id="video" muted autoplay playsinline webkit-playsinline preload="metadata"></video>
+        </div>
+    </div>
     <script>
         const video = document.getElementById('video');
         const stream = 'https://br5093.streamingdevideo.com.br/tvjudaica/tvjudaica/playlist.m3u8';
 
         function iniciarStream() {
+            video.muted = true;
+            video.playsInline = true;
+            video.setAttribute('webkit-playsinline', '');
             if (Hls.isSupported()) {
                 const hls = new Hls();
                 hls.loadSource(stream);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                    video.play();
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(() => { });
                 });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = stream;
+                video.load();
                 video.addEventListener('loadedmetadata', function () {
                     video.play();
                 });
@@ -50,16 +78,16 @@
                 alert('Seu navegador não suporta reprodução de vídeo HLS.');
             }
         }
-
-        iniciarStream();
-
-        // Controles via teclado
+        window.addEventListener('load', () => {
+            iniciarStream();
+            document.body.focus();
+        });
         document.addEventListener('keydown', function (event) {
             switch (event.keyCode) {
-                case 13: // ENTER = mute/unmute
+                case 13:
                     video.muted = !video.muted;
                     break;
-                case 32: // SPACE = pause/play
+                case 32:
                     if (video.paused) {
                         video.play();
                     } else {
@@ -70,10 +98,6 @@
                     break;
             }
         });
-
-        window.onload = () => {
-            document.body.focus();
-        };
     </script>
 </body>
 

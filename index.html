@@ -1,107 +1,200 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TV Judaica</title>
-    <style>
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: black;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TV Judaica</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: black;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
 
-        .player-wrapper {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: black;
-        }
+    .player-wrapper {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: black;
+      position: relative;
+    }
 
-        .tv-frame {
-            width: 100%;
-            max-width: calc(100vh * 16 / 9);
-            max-height: 100vh;
-            aspect-ratio: 16 / 9;
-            background: black;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    .tv-frame {
+      width: 100%;
+      max-width: calc(100vh * 16 / 9);
+      max-height: 100vh;
+      aspect-ratio: 16 / 9;
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
 
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            background: black;
-            border: none;
-        }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: black;
+      border: none;
+    }
+
+    /* Overlay "tap to start" (só aparece se autoplay falhar) */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.35);
+      color: #fff;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-size: 16px;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: pointer;
+    }
+    .overlay.show { display: flex; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </head>
 
 <body>
-    <div class="player-wrapper">
-        <div class="tv-frame">
-            <video id="video" autoplay muted playsinline webkit-playsinline controls></video>
-        </div>
+  <div class="player-wrapper">
+    <div class="tv-frame">
+      <video
+        id="video"
+        autoplay
+        muted
+        playsinline
+        webkit-playsinline
+        controls
+        preload="auto"
+      ></video>
+
+      <div id="overlay" class="overlay">
+        Toque para iniciar o vídeo
+      </div>
     </div>
-    <script>
-        const video = document.getElementById('video');
-        const stream = 'https://br5093.streamingdevideo.com.br/tvjudaica/tvjudaica/playlist.m3u8';
+  </div>
 
-        function iniciarStream() {
-            video.muted = true;
-            video.playsInline = true;
-            video.setAttribute('webkit-playsinline', '');
-            if (Hls.isSupported()) {
-                const hls = new Hls();
-                hls.loadSource(stream);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    video.play().catch(() => { });
-                });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = stream;
-                video.load();
-                // video.play().catch((err) => {
-                //     console.log('autoplay bloqueado', err);
-                // });
-                video.addEventListener('loadedmetadata', function () {
-                    video.play();
-                });
-            } else {
-                alert('Seu navegador não suporta reprodução de vídeo HLS.');
-            }
+  <script>
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const stream = 'https://br5093.streamingdevideo.com.br/tvjudaica/tvjudaica/playlist.m3u8';
+
+    let hls;
+
+    function showOverlay() {
+      overlay.classList.add('show');
+    }
+    function hideOverlay() {
+      overlay.classList.remove('show');
+    }
+
+    async function tryPlay(label) {
+      // garante flags antes de tentar
+      video.muted = true;
+      video.setAttribute('muted', '');
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+
+      try {
+        const p = video.play();
+        if (p && typeof p.then === 'function') await p;
+        hideOverlay();
+        return true;
+      } catch (e) {
+        // Autoplay bloqueado (comum no iOS/WKWebView)
+        // console.log('play bloqueado em', label, e);
+        showOverlay();
+        return false;
+      }
+    }
+
+    function attachRetryEvents() {
+      const retry = () => tryPlay('retry-event');
+      video.addEventListener('loadedmetadata', retry, { once: true });
+      video.addEventListener('loadeddata', retry, { once: true });
+      video.addEventListener('canplay', retry, { once: true });
+      video.addEventListener('canplaythrough', retry, { once: true });
+    }
+
+    function startStream() {
+      // iOS Safari/WKWebView: setar propriedades antes
+      video.muted = true;
+      video.defaultMuted = true;
+
+      attachRetryEvents();
+
+      if (Hls.isSupported()) {
+        if (hls) {
+          try { hls.destroy(); } catch {}
         }
-        window.addEventListener('load', () => {
-            iniciarStream();
-            document.body.focus();
+        hls = new Hls({
+          // ajuda em redes instáveis e em alguns webviews
+          enableWorker: true,
+          lowLatencyMode: true,
         });
-        document.addEventListener('keydown', function (event) {
-            switch (event.keyCode) {
-                case 13:
-                    video.muted = !video.muted;
-                    break;
-                case 32:
-                    if (video.paused) {
-                        video.play();
-                    } else {
-                        video.pause();
-                    }
-                    break;
-                default:
-                    break;
-            }
-        });
-    </script>
-</body>
 
+        hls.loadSource(stream);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          // tenta imediatamente
+          tryPlay('manifest-parsed');
+        });
+
+        // quando troca de nível/buffer, às vezes dá pra tentar de novo
+        hls.on(Hls.Events.ERROR, () => {
+          // sem loop agressivo aqui; eventos do video já tentam de novo
+        });
+
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // iOS nativo HLS
+        video.src = stream;
+
+        // importante: tentar play logo depois de setar src
+        tryPlay('ios-src-set');
+      } else {
+        alert('Seu navegador não suporta reprodução de vídeo HLS.');
+      }
+    }
+
+    // Overlay: desbloqueia com toque (user gesture)
+    function bindOverlayUnlock() {
+      const unlock = async () => {
+        // em alguns iOS, precisa chamar play dentro do handler do toque
+        await tryPlay('overlay-tap');
+      };
+      overlay.addEventListener('click', unlock);
+      overlay.addEventListener('touchstart', unlock, { passive: true });
+    }
+
+    window.addEventListener('load', () => {
+      bindOverlayUnlock();
+      startStream();
+      document.body.focus();
+    });
+
+    // Teclado (mantive)
+    document.addEventListener('keydown', function (event) {
+      switch (event.keyCode) {
+        case 13:
+          video.muted = !video.muted;
+          break;
+        case 32:
+          if (video.paused) video.play();
+          else video.pause();
+          break;
+      }
+    });
+  </script>
+</body>
 </html>
